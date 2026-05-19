@@ -1,0 +1,17 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://127.0.0.1:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: app_logs
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: vllm_stack
+          __path__: /home/momen/momen/vLLM/logs/*.log
