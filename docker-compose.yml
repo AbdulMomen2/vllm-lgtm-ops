@@ -1,0 +1,162 @@
+services:
+  # --- INFRASTRUCTURE LAYER ---
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # --- APP LAYER ---
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_ENGINE_URL=http://llm-engine:8000
+    command: uvicorn src.gateway:app --host 0.0.0.0 --port 8080
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m" # Prevent logs from eating SSD
+
+  worker:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_ENGINE_URL=http://llm-engine:8000
+      - PYTHONUNBUFFERED=1 
+    command: python src/worker.py
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - llm-engine
+
+  llm-engine:
+    build: .
+    ports:
+      - "8000:8000"
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/metrics"]
+      interval: 10s
+      retries: 3
+
+  # --- MONITORING LAYER (The "Eyes") ---
+  
+  # Task 1.2: GPU Exporter
+  # gpu-exporter:
+  #   image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.5-3.4.0-ubuntu22.04
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   ports:
+  #     - "9400:9400" # Note: DCGM uses 9400, not 9835
+  #   networks:
+  #     - llm-network
+  #   restart: always
+
+  # Task 5.13: Container Stats (CPU/RAM per service)
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  # Task 5.2: Centralized Logging (Loki)
+  loki:
+    image: grafana/loki:2.9.0
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - llm-network
+
+  # Task 5.3: Promtail (The Log Shipper)
+  promtail:
+    image: grafana/promtail:2.9.0
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro # Read container logs
+      - /var/run/docker.sock:/var/run/docker.sock               # To see container metadata
+      - ./promtail-config.yaml:/etc/promtail/config.yaml        # Config file
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - llm-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    ports:
+      - "3000:3000"
+    # depends_on:
+    #   - postgres
+    environment:
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=${POSTGRES_HOST}:${POSTGRES_PORT}
+      - GF_DATABASE_NAME=${POSTGRES_DB}
+      - GF_DATABASE_USER=${POSTGRES_USER}
+      - GF_DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - GF_DATABASE_SSL_MODE=disable
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+
+networks:
+  llm-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  grafana_data:

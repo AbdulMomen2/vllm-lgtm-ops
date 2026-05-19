@@ -1,0 +1,155 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "GPU Hardware Telemetry (NVIDIA Exporter)",
+      "type": "timeseries",
+      "datasource": null,
+      "targets": [
+        {
+          "datasource": null,
+          "editorMode": "code",
+          "expr": "DCGM_FI_DEV_GPU_TEMP",
+          "legendFormat": "GPU Temp (°C)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": null,
+          "editorMode": "code",
+          "expr": "DCGM_FI_DEV_POWER_USAGE",
+          "legendFormat": "Power Draw (W)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": null,
+          "editorMode": "code",
+          "expr": "DCGM_FI_DEV_FB_USED / 1024 / 1024",
+          "legendFormat": "VRAM Used (MB)",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth"
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "title": "User Token Billing (Tiktoken Usage)",
+      "type": "barchart",
+      "datasource": null,
+      "targets": [
+        {
+          "datasource": null,
+          "editorMode": "code",
+          "expr": "sum by (team_name) (llm_user_token_usage_total)",
+          "legendFormat": "{{team_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "title": "Reliability & Queue Health (Success vs Throttled 429 vs Error 500)",
+      "type": "timeseries",
+      "datasource": null,
+      "targets": [
+        {
+          "datasource": null,
+          "editorMode": "code",
+          "expr": "sum(rate(http_requests_total{status=~\"2..\"}[5m]))",
+          "legendFormat": "Successful API Requests (2xx)",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": null,
+          "editorMode": "code",
+          "expr": "sum(rate(llm_gateway_throttled_requests_total[5m]))",
+          "legendFormat": "Throttled Hits (429)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": null,
+          "editorMode": "code",
+          "expr": "sum(rate(llm_worker_errors_total[5m]))",
+          "legendFormat": "Worker Execution Failures (5xx)",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth"
+          }
+        }
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["llmops", "vllm"],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Industrial LLMOps Dashboard",
+  "uid": "llmops-dashboard",
+  "version": 1
+}

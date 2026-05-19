@@ -1,0 +1,24 @@
+# --- Web Server & Framework ---
+fastapi==0.110.0
+uvicorn==0.27.1
+pydantic-settings==2.2.1
+
+# --- Monitoring & Metrics (The LGTM Lite stack) ---
+prometheus-client==0.20.0
+prometheus-fastapi-instrumentator==7.0.0
+
+# --- LLM Logic & Tokenization ---
+# We use transformers for accurate Mistral/Llama token counting
+transformers==4.38.2
+tokenizers==0.15.2
+# Lightweight HTTP client for our Warmup script and Engine communication
+httpx==0.27.0
+
+# --- Environment Management ---
+python-dotenv==1.0.1
+redis==5.0.3
+
+tiktoken
+python-json-logger
+tenacity
+langfuse

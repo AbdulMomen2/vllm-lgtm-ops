@@ -1,0 +1,88 @@
+ ensure "No compromise on LLMOps" while keeping the system lean enough for a 4090, we integrate monitoring into every layer. We won't use a "heavy" enterprise suite; we will use the LGTM Lite stack (Loki, Grafana, Tempo, Mimir/Prometheus) specifically tuned for a single node.
+Here is the updated 100-Task Industrial Roadmap with the monitoring architecture integrated.
+🏛️ The Monitoring Architecture (The "Eyes")
+Hardware Level: NVIDIA Exporter (VRAM/Temp/Power).
+Engine Level: vLLM Native Metrics (TTFT, Tokens/sec, Batch size).
+Queue Level: Redis Exporter (Queue depth, memory usage).
+App Level: Prometheus Middleware (HTTP 429s, Latency, Token counts).
+Log Level: Loki + Promtail (Centralized structured logs).
+🗺️ The Refined 100-Task Industrial Roadmap
+🟢 Module 1: The Foundation & GPU Monitoring
+Task 1.1: Setup Docker with NVIDIA Runtime.
+Task 1.2: Deploy NVIDIA GPU Exporter (Container to turn nvidia-smi into metrics).
+Task 1.3: Setup vLLM with --gpu-memory-utilization 0.85.
+Task 1.4: Enable vLLM's internal Prometheus metrics (--vllm-config).
+Task 1.5: Tune --max-num-seqs 4.
+Task 1.6: Implement the "Warmup" script.
+Task 1.7: Setup vLLM Health Checks.
+Task 1.8: Monitoring Task: Verify GPU metrics appear in Prometheus (VRAM usage check).
+Task 1.9: Monitoring Task: Map vLLM's "Requests Running" metric.
+Task 1.10: Set hard output token caps.
+🟡 Module 2: The Producer (FastAPI + Metrics)
+Task 2.1: Init FastAPI.
+Task 2.2: Add Prometheus FastAPI Instrumentator (Middleware to track every API call).
+Task 2.3: Implement API Key Auth.
+Task 2.4: Implement Token Counting (Tiktoken).
+Task 2.5: Monitoring Task: Export "Tokens used per API Key" as a Prometheus Counter.
+Task 2.6: Implement Redis-based Rate Limiting.
+Task 2.7: Monitoring Task: Track "429 Rate Limit Hits" (To see if users are being throttled too much).
+Task 2.8: Implement Backpressure logic (Check Redis list length).
+Task 2.9: Handle Client Disconnect (Cancel generation).
+Task 2.10: Monitoring Task: Track "Request Latency" (P95 and P99 buckets).
+🔵 Module 3: The State & Queue (Redis)
+Task 3.1: Deploy Redis.
+Task 3.2: Deploy Redis Exporter (To see queue health).
+Task 3.3: Implement the RPOPLPUSH reliable queue in Python.
+Task 3.4: Implement Exact Match Cache.
+Task 3.5: Monitoring Task: Export "Cache Hit Ratio" (How much money/GPU time are you saving?).
+Task 3.6: Monitoring Task: Track "Queue Wait Time" (How long do users sit in FIFO?).
+Task 3.7: Implement Job TTL (Auto-expire stale requests).
+Task 3.8: Setup "Dead Letter" list for failed jobs.
+Task 3.9: Handle Redis Connection Failure (Fallback logic).
+Task 3.10: Test: Simulate 100 users and watch the Redis Queue Depth metric.
+🟠 Module 4: The Consumer (Worker & Tracing)
+Task 4.1: Create the separate worker.py process.
+Task 4.2: Implement the Task Semaphore (Max 4 concurrent vLLM calls).
+Task 4.3: LLMOps Task: Install LangFuse or Arize Phoenix for Tracing.
+Task 4.4: Wrap the Worker's vLLM call in a Trace Span.
+Task 4.5: Monitoring Task: Track "vLLM Error Rate" (5xx errors).
+Task 4.6: Implement "Result Publisher" (Return data to FastAPI via Redis).
+Task 4.7: Monitoring Task: Log TTFT (Time to First Token) per request.
+Task 4.8: Capture "Finish Reason" (Did it hit max tokens or stop naturally?).
+Task 4.9: Implement 1-time Retry logic.
+Task 4.10: Monitoring Task: Track "Active Worker Threads" (Should never exceed 4).
+🔴 Module 5: The "Eyes" (Grafana & Loki)
+Goal: Centralize everything so you can debug "The 100-user rush."
+Task 5.1: Deploy Prometheus (To scrape all targets: GPU, vLLM, Redis, App).
+Task 5.2: Deploy Loki (For structured logs).
+Task 5.3: Deploy Promtail (To grab logs from Docker containers and send to Loki).
+Task 5.4: Deploy Grafana.
+Task 5.5: Dashboard Task: Create a "GPU Overload" panel (VRAM vs Power).
+Task 5.6: Dashboard Task: Create a "User Billing" panel (Tokens per user).
+Task 5.7: Dashboard Task: Create a "Reliability" panel (Success vs 429 vs 500).
+Task 5.8: Setup AlertManager.
+Task 5.9: Alert Task: Slack/Webhook notification if "VRAM > 95%" or "vLLM Down."
+Task 5.10: Alert Task: Notify if "P99 Latency > 30s."
+Task 5.11: Configure Log Retention (Keep logs for 7 days only to save disk).
+Task 5.12: Implement "Trace ID" injection into logs (Find the log for a specific trace).
+Task 5.13: Setup "CAdvisor" (To monitor CPU/RAM of every Docker container).
+Task 5.14: Verify "Audit Trail" (Who asked what - stored in Loki).
+Task 5.15: Test: Kill Redis and see if the Grafana Alert triggers.
+Task 5.16: Test: Overload the queue and see the "429" spike in Grafana.
+Task 5.17: Final Disk Check (Ensure logs aren't eating the SSD).
+Task 5.18: Secure Grafana with a strong password.
+Task 5.19: Setup "Daily System Health Email" (Automated report).
+Task 5.20: Final Stress Test: Run 100 concurrent users and watch the "Startup Dashboard."
+🎨 The "Observed" Architecture Diagram
+User → Traefik (Scraped by Prometheus)
+Traefik → FastAPI (Scraped by Prometheus / Logs to Loki)
+FastAPI → Redis (Scraped by Redis Exporter)
+Worker → vLLM (Scraped by Prometheus / Traces to LangFuse)
+GPU Hardware → (Scraped by NVIDIA Exporter)
+ALL METRICS → Prometheus → Grafana
+ALL LOGS → Loki → Grafana
+🎯 Why this is "Industrial":
+Hardware safety: You can see if the 4090 is melting or out of VRAM.
+User Accountability: You know exactly which of the 100 team members is using the most tokens.
+Root Cause Analysis: If an agent fails, you have the Trace (LangFuse) + the Log (Loki) + the Hardware State (Prometheus) at that exact second.
+Are you ready to build Module 1, Tasks 1.1–1.5 (The Core Engine + GPU Metrics)?

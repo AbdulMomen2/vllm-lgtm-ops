@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  llm-engine:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Task 1.2: DCGM NVIDIA GPU Exporter
+  gpu-exporter:
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.5-3.4.0-ubuntu22.04
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "9400:9400"
+    restart: always
